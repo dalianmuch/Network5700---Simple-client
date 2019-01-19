@@ -1,0 +1,103 @@
+#!/usr/bin/python
+# -*- coding: UTF-8 -*-
+
+# get module to read script arguments
+import sys
+# get module for socket
+import socket
+
+def solve_math(num_one, num_two, operator):
+    if operator == "*":
+        return num_one * num_two
+    elif operator == "/":
+        return num_one / num_two
+    elif operator == "+":
+        return num_one + num_two
+    elif operator == "-":
+        return num_one - num_two
+    else:
+        assert False
+
+# get the remote server host address
+host = "cs5700f18.ccs.neu.edu"
+# get default port number
+port = 27993
+# encrypted SSL socket or not
+ssl = False
+# get NEU ID
+neu_id = ""
+# unique secret_flag to print
+secret_flag = ""
+
+# be Careful for "Name of Script", so have +1 argument
+if len(sys.argv) == 3:
+    host = sys.argv[1]
+    neu_id = sys.argv[2]
+elif len(sys.argv) == 4:
+    assert sys.argv[1] == "-s"
+    host = sys.argv[2]
+    port = 27994
+    ssl = True
+    neu_id = sys.argv[3]
+elif len(sys.argv) == 5:
+    assert sys.argv[1] == "-p"
+    host = sys.argv[3]
+    port = int(sys.argv[2])
+    neu_id = sys.argv[4]
+elif len(sys.argv) == 6:
+    assert sys.argv[1] == "-p" and sys.argv[3] == "-s"
+    host = sys.argv[4]
+    port = int(sys.argv[2])
+    ssl = True
+    neu_id = sys.argv[5]
+else:
+    assert False
+
+# build socket object
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_address = (host, port)
+# 1st step: connect
+s.connect(server_address)
+
+hello_message = "cs5700fall2018 HELLO " + neu_id + '\n'
+# 2nd step: send HELLO
+s.send(hello_message)
+
+while True:
+    # receive 256 bytes at most
+    # 3rd step: receive STATUS/BYE
+    data = s.recv(256)
+    # remove the trailing newline character '\n' in data message
+    data = data.rstrip('\n')
+
+    data_split = data.split()
+    len_of_data = len(data_split)
+
+    assert data_split[0] == "cs5700fall2018" and len_of_data >= 3
+
+    message_back = ""
+
+    if data_split[1] == "STATUS":
+        assert len_of_data == 5
+        num_one = int(data_split[2])
+        num_two = int(data_split[4])
+        num_result = solve_math(num_one, num_two, data_split[3])
+        message_back = "cs5700fall2018 " + str(num_result) + '\n'
+
+        # 4th step: send back SOLUTION
+        s.send(message_back)
+    elif data_split[len_of_data-1] == "BYE":
+        assert len_of_data == 3
+        assert "Unknown_Husky_ID" not in data_split
+
+        secret_flag = data_split[1]
+        # end
+        break
+    else:
+        # other wrong messages, terminate program immediately
+        assert False
+
+    # loop again for more messages
+
+print secret_flag
+s.close()
